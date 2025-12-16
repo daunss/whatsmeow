@@ -156,6 +156,11 @@ type SendRequestExtra struct {
 	Meta *types.MsgMetaInfo
 	// use this only if you know what you are doing
 	AdditionalNodes *[]waBinary.Node
+
+	// StatusRecipients allows sending status messages to a specific list of JIDs
+	// instead of using the default privacy settings. Only used when sending to StatusBroadcastJID.
+	// This enables "Group Status" functionality by allowing you to send status only to group members.
+	StatusRecipients []types.JID
 }
 
 // SendMessage sends the given message.
@@ -313,10 +318,15 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
 				extraParams.addressingMode = types.AddressingModePN
 			}
 		} else {
-			groupParticipants, err = cli.getBroadcastListParticipants(ctx, to)
-			if err != nil {
-				err = fmt.Errorf("failed to get broadcast list members: %w", err)
-				return
+			// Check if custom status recipients are provided (for Group Status feature)
+			if len(req.StatusRecipients) > 0 && to == types.StatusBroadcastJID {
+				groupParticipants = req.StatusRecipients
+			} else {
+				groupParticipants, err = cli.getBroadcastListParticipants(ctx, to)
+				if err != nil {
+					err = fmt.Errorf("failed to get broadcast list members: %w", err)
+					return
+				}
 			}
 		}
 		resp.DebugTimings.GetParticipants = time.Since(start)
